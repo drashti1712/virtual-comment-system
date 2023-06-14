@@ -15,18 +15,37 @@ class NoteComment {
     }
 }
 function activate(context) {
-    // A `CommentController` is able to provide comments for documents.
+    console.log('ACTIVATING....');
+    //obtaining the file path
+    const activeEditor = vscode.window.activeTextEditor;
+    const folderName = (vscode.workspace.workspaceFolders !== undefined) ? vscode.workspace.workspaceFolders[0].name : '';
+    const currentFilePath = (activeEditor && activeEditor.document && activeEditor.document.fileName) ?
+        vscode.Uri.file(activeEditor.document.fileName.split(folderName)[1]).path : '';
+    const currentFile = {
+        currentDir: __dirname + '/../.docs' + currentFilePath
+    };
     const commentController = vscode.comments.createCommentController('comment-sample', 'Comment API Sample');
     context.subscriptions.push(commentController);
-    // A `CommentingRangeProvider` controls where gutter decorations that allow adding comments are shown
     commentController.commentingRangeProvider = {
         provideCommentingRanges: (document, token) => {
             const lineCount = document.lineCount;
+            //changing filePath on tab change
+            const filePath = document.uri.path.split(folderName)[1];
+            currentFile.currentDir = __dirname + '/../.docs' + filePath;
             return [new vscode.Range(0, 0, lineCount - 1, 0)];
         }
     };
     context.subscriptions.push(vscode.commands.registerCommand('mywiki.createNote', (reply) => {
+        console.log(currentFile);
+        const dir = currentFile.currentDir;
+        vscode.workspace.fs.writeFile(vscode.Uri.file(dir), Buffer.from(reply.text, 'utf8'));
         replyNote(reply);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('mywiki.getComments', () => {
+        vscode.window.showInformationMessage('Comments are coming!!');
+        vscode.workspace.fs.readFile(vscode.Uri.file(currentFile.currentDir))
+            .then(res => Buffer.from(res.buffer).toString())
+            .then(res => console.log(res));
     }));
     context.subscriptions.push(vscode.commands.registerCommand('mywiki.replyNote', (reply) => {
         replyNote(reply);

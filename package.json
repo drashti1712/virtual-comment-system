@@ -76,6 +76,10 @@
 			{
 				"command": "mywiki.dispose",
 				"title": "Remove All Notes"
+			},
+			{
+				"command": "mywiki.getComments",
+				"title": "Get Comments"
 			}
 		],
 		"menus": {
