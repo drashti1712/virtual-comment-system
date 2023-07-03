@@ -1,18 +1,20 @@
-/* eslint-disable no-mixed-spaces-and-tabs */
+/* eslint-disable prefer-const */
 'use strict';
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { readFileSync, writeFileSync } from 'fs';
+import path = require('path');
 
 let commentId = 1;
 
-class NoteComment implements vscode.Comment {
+class NewComment implements vscode.Comment {
 	id: number;
 	label: string | undefined;
 	savedBody: string | vscode.MarkdownString; // for the Cancel button
 	constructor(
 		public body: string | vscode.MarkdownString,
+		public line: number,
 		public mode: vscode.CommentMode,
 		public author: vscode.CommentAuthorInformation,
 		public parent?: vscode.CommentThread,
@@ -24,211 +26,190 @@ class NoteComment implements vscode.Comment {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-	console.log('ACTIVATING....');
+	
 	//obtaining the file path
 	const activeEditor = vscode.window.activeTextEditor;
 	const folderName = (vscode.workspace.workspaceFolders !== undefined) ? vscode.workspace.workspaceFolders[0].name : ''; 
 	const currentFilePath =  (activeEditor && activeEditor.document && activeEditor.document.fileName) ? 
 		vscode.Uri.file(activeEditor.document.fileName.split(folderName)[1]).path : '';
-	const currentFile = {
-		currentDir: __dirname+'/../.docs'+currentFilePath
-	};
+	const newVar = activeEditor? activeEditor.document.fileName : '';
+	const newStr = newVar.split(folderName).join(folderName+'\\.docs');
 
-	const commentController = vscode.comments.createCommentController('comment-sample', 'Comment API Sample');
+	// console.log(newStr+'.json');
+	const dirData = {
+		filePath: __dirname+'/../.docs'+currentFilePath+'.json',
+		newPath: newStr+'.json',
+		fullPath: activeEditor? activeEditor.document.fileName : ''
+	};
+	const commentController = vscode.comments.createCommentController('virtual-comment-system', 'Virtual Comment System');
 	context.subscriptions.push(commentController);
 
 	commentController.commentingRangeProvider = {
 		provideCommentingRanges: (document: vscode.TextDocument, token: vscode.CancellationToken) => {
 			const lineCount = document.lineCount;
 			//changing filePath on tab change
-			const filePath = document.uri.path.split(folderName)[1];
-			currentFile.currentDir = __dirname+'/../.docs'+filePath;
+			const currentFilePath = document.uri.path.split(folderName)[1];
+			dirData.filePath = __dirname+'/../.docs'+currentFilePath+'.json';
+			const newStr = document.uri.path.split(folderName);
+			const newStr2 = path.join(newStr[0], folderName, '.docs', newStr[1]);
+			
+			dirData.fullPath = document.uri.path;
+			dirData.newPath = newStr2+'.json';
+			// console.log('tab change', dirData.newPath);
+			commentProvider.dispose();
+			commentProvider = showComments();
 			return [new vscode.Range(0, 0, lineCount - 1, 0)];
 		}
 		
 	};
 
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.createNote', (reply: vscode.CommentReply) => {
-		
-		replyNote(reply);
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.getComments', () => {
-		vscode.window.showInformationMessage('Comments are coming!!');
-		const content = JSON.parse(readFileSync(currentFile.currentDir+'.json', 'utf-8'));
-		console.log(content);
-
-		//show comments
-		vscode.languages.registerCodeLensProvider({ scheme: 'file' }, {
-			provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeLens[]> {
-			  const codeLenses: vscode.CodeLens[] = [];
-		  
-			  // Create a CodeLens for each line where you want to display the text
-			  const lineNumbers: number[] = [];
-			  for (const entry of content) {
-				const range = new vscode.Range(entry.lineNumber - 1, 0, entry.lineNumber - 1, 0);
-				const command: vscode.Command = {
-				  title: entry.text, // Text to be displayed
-				  command: '', // Command to execute when the CodeLens is clicked
-				  tooltip: 'Click to perform an action', // Optional tooltip
-				};
-				const codeLens = new vscode.CodeLens(range, command);
-				codeLenses.push(codeLens);
-			  }
-			  return codeLenses;
-			},
-		  });
-		  
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.replyNote', (reply: vscode.CommentReply) => {
-		replyNote(reply);
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.startDraft', (reply: vscode.CommentReply) => {
+	let commentProvider = showComments();
+	context.subscriptions.push(vscode.commands.registerCommand('mywiki.addComment', (reply: vscode.CommentReply) => {
 		const thread = reply.thread;
-		thread.contextValue = 'draft';
-		const newComment = new NoteComment(reply.text, vscode.CommentMode.Preview, { name: 'vscode' }, thread);
-		newComment.label = 'pending';
+		thread.canReply = false;
+		const newComment = new NewComment(reply.text, 0, vscode.CommentMode.Preview, { name: '' }, thread, thread.comments.length ? 'canDelete' : undefined);
+		thread.label = ' ';
+		newComment.label=' ';
+		writeComment(newComment);
 		thread.comments = [...thread.comments, newComment];
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.finishDraft', (reply: vscode.CommentReply) => {
-		const thread = reply.thread;
-
-		if (!thread) {
-			return;
-		}
-
-		thread.contextValue = undefined;
-		thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-		if (reply.text) {
-			const newComment = new NoteComment(reply.text, vscode.CommentMode.Preview, { name: 'vscode' }, thread);
-			thread.comments = [...thread.comments, newComment].map(comment => {
-				comment.label = undefined;
-				return comment;
-			});
-		}
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.deleteNoteComment', (comment: NoteComment) => {
-		const thread = comment.parent;
-		if (!thread) {
-			return;
-		}
-
-		thread.comments = thread.comments.filter(cmt => (cmt as NoteComment).id !== comment.id);
-
-		if (thread.comments.length === 0) {
-			thread.dispose();
-		}
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.deleteNote', (thread: vscode.CommentThread) => {
+		commentProvider.dispose();
+		commentProvider = showComments();
 		thread.dispose();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.cancelsaveNote', (comment: NoteComment) => {
+	context.subscriptions.push(vscode.commands.registerCommand('mywiki.deleteComment', (thread: vscode.CommentThread) => {
+		const path = dirData.newPath.replace(/\\/g, '\\\\');
+		const content = (fs.existsSync(path.slice(2))) ? JSON.parse(readFileSync(path.slice(2), 'utf-8')) : [];
+		const index = content.findIndex((obj: { text: string | vscode.MarkdownString; }) => obj.text === thread.comments[0].body);
+		if (index !== -1) {
+			content.splice(index, 1);
+		}
+		fs.writeFileSync(path.slice(2), JSON.stringify(content, null, 2));
+		thread.dispose();
+		commentProvider.dispose();
+		commentProvider = showComments();
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('mywiki.cancelsaveComment', (comment: NewComment) => {
 		if (!comment.parent) {
 			return;
 		}
-
 		comment.parent.comments = comment.parent.comments.map(cmt => {
-			if ((cmt as NoteComment).id === comment.id) {
-				cmt.body = (cmt as NoteComment).savedBody;
+			if ((cmt as NewComment).id === comment.id) {
+				cmt.body = (cmt as NewComment).savedBody;
 				cmt.mode = vscode.CommentMode.Preview;
 			}
 
 			return cmt;
 		});
+		comment.parent.dispose();
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.saveNote', (comment: NoteComment) => {
-		if (!comment.parent) {
-			return;
-		}
+	context.subscriptions.push(vscode.commands.registerCommand('mywiki.saveComment', (comment: NewComment) => {
+		comment.mode = vscode.CommentMode.Preview;
+		editComment(comment);
+		commentProvider.dispose();
+		commentProvider = showComments();
+		comment.parent?.dispose();
+	}));
 
-		comment.parent.comments = comment.parent.comments.map(cmt => {
-			if ((cmt as NoteComment).id === comment.id) {
-				(cmt as NoteComment).savedBody = cmt.body;
-				// console.log(cmt);
-				cmt.mode = vscode.CommentMode.Preview;
+	context.subscriptions.push(vscode.commands.registerCommand('mywiki.clickComment', (text: string, lineNumber: number) => {
+		commentProvider.dispose();
+		commentProvider = showComments();
+		const newComment = new NewComment(text, lineNumber, vscode.CommentMode.Editing, { name: ' '});	
+		const x = activeEditor? activeEditor.document.fileName : '';
+		console.log('editing', dirData.fullPath);
+		const thread = commentController.createCommentThread(vscode.Uri.file(dirData.fullPath), new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0),  [newComment]);
+		thread.canReply = false;
+		thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+		thread.label = ' ';
+		newComment.parent = thread;
+	}));
+
+	function showComments() {
+		const path = dirData.newPath.replace(/\\/g, '\\\\');
+		const content = (fs.existsSync(path.slice(2))) ? JSON.parse(readFileSync(path.slice(2), 'utf-8')) : [];
+		// console.log(content);
+		return vscode.languages.registerCodeLensProvider({ scheme: 'file' }, {
+			provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeLens[]> {
+			const codeLenses: vscode.CodeLens[] = [];
+			const existingCodeLensRanges: vscode.Range[] = [];
+    
+			// Iterate over existing CodeLenses and store their ranges
+			for (const codeLens of codeLenses) {
+			existingCodeLensRanges.push(codeLens.range);
 			}
-
-			return cmt;
-		});
-	}));
-
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.editNote', (comment: NoteComment) => {
-		if (!comment.parent) {
-			return;
-		}
-
-		comment.parent.comments = comment.parent.comments.map(cmt => {
-			if ((cmt as NoteComment).id === comment.id) {
-				cmt.mode = vscode.CommentMode.Editing;
+			const lineNumbers: number[] = [];
+			for (const entry of content) {
+				const range = new vscode.Range(entry.lineNumber - 1, 0, entry.lineNumber - 1, 0);
+				if (!existingCodeLensRanges.some(existingRange => existingRange.contains(range))) {
+				const command: vscode.Command = {
+				title: entry.text,
+				command: 'mywiki.clickComment', 
+				tooltip: entry.text.replace(/(?:\r\n|\r|\n)/g, '\n'), 
+				arguments: [
+					entry.text,
+					entry.lineNumber
+				]
+			};
+				const codeLens = new vscode.CodeLens(range, command);
+				codeLenses.push(codeLens);
+			}}
+			return codeLenses;
 			}
-
-			return cmt;
 		});
-	}));
+	}
 
-	context.subscriptions.push(vscode.commands.registerCommand('mywiki.dispose', () => {
-		commentController.dispose();
-	}));
-
-	function replyNote(reply: vscode.CommentReply) {
-		const thread = reply.thread;
-		const newComment = new NoteComment(reply.text, vscode.CommentMode.Preview, { name: 'vscode' }, thread, thread.comments.length ? 'canDelete' : undefined);
+	function writeComment(newComment: NewComment) {
+		
 		//get line number and comment
-		const lineNumber = newComment.parent?.range.start.line || 0;
+		const lineNo = newComment.parent? newComment.parent.range.start.line+1 : newComment.line;
 		//comment object
 		const commentObj = [{
-			lineNumber: lineNumber+1,
-			comment: reply.text,
+			lineNumber: lineNo,
+			text: newComment.body,
 		}];
-		console.log(commentObj);
-		//new write
-		//-----
 		// Read the existing data from the file
 		let existingData: any[] = [];
-		const dir = currentFile.currentDir;
-		const filePath = dir +'.json';
-		if (fs.existsSync(filePath)) {
-		  const fileContent = fs.readFileSync(filePath, 'utf8');
-		  existingData = JSON.parse(fileContent);
+		const path = dirData.newPath.replace(/\\/g, '\\\\');
+		// console.log(dirData.fullPath);
+		// console.log('path', path);
+		const separatingIndex = path.lastIndexOf('\\\\');
+		const p1 =  path.slice(2,separatingIndex);
+		//case: file already exists
+		if (fs.existsSync(path.slice(2))) {
+			// console.log('file exists');
+			const fileContent = fs.readFileSync(path.slice(2), 'utf8');
+			existingData = JSON.parse(fileContent);
 		}
-
 		// Append new data to existing data
 		const updatedData = [...existingData, ...commentObj];
-
 		// Write the updated data to the file
 		const jsonContent = JSON.stringify(updatedData, null, 2);
-		fs.writeFileSync(filePath, jsonContent, 'utf8');
-		//-----
-		//write obj to file
-		// const dir = currentFile.currentDir;
-		// writeFileSync(dir+'.json', JSON.stringify(commentObj), {
-		// 		flag: 'w',
-		// });
-		// vscode.workspace.fs.writeFile(vscode.Uri.file(dir + '.json'), Uint8Array.from(commentObj	));
-		if (thread.contextValue === 'draft') {
-			newComment.label = 'pending';
+		// const separatingIndex = path.lastIndexOf('\\\\');
+		// const p1 =  path.slice(2,separatingIndex);
+		try {
+			fs.mkdirSync(p1, { recursive: true });
+			// console.log('directory created');
+		} catch (e) {
+			console.log(e);
 		}
-
-		thread.comments = [...thread.comments, newComment];
+		// console.log(path.slice(2));
+		writeFileSync(path.slice(2), jsonContent, 'utf8');
 	}
 
-	function getCurrentLineNumber() {
-		const editor = vscode.window.activeTextEditor;
-		if (editor) {
-			const position = editor.selection.active;
-			// console.log('new line number: ', position.line);
-			return position.line + 1; // Adding 1 because line numbers start from 0
+	function editComment(newComment: NewComment) {
+		let existingData: any[] = [];
+		//case: file already exists
+		const path = dirData.newPath.replace(/\\/g, '\\\\');
+		if (fs.existsSync(path.slice(2))) {
+			const fileContent = fs.readFileSync(path.slice(2), 'utf8');
+			existingData = JSON.parse(fileContent);
 		}
-		return 0; // Return 0 if no active editor or selection
+		const matchingObject = existingData.find((obj: { lineNumber: number }) => obj.lineNumber === newComment.line);
+		if (matchingObject) {
+			matchingObject.text = newComment.body;
+			fs.writeFileSync(path.slice(2), JSON.stringify(existingData, null, 2));
+		} 
 	}
-	// Example usage
-	// const lineNumber = getCurrentLineNumber();
-	// console.log('Current line number:', lineNumber);
 }

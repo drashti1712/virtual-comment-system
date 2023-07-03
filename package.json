@@ -1,9 +1,8 @@
 {
-	"name": "vscode-comment-api-example",
-	"displayName": "Comment API Sample",
-	"description": "Comment API Sample",
+	"name": "virtual-comment-system",
+	"displayName": "Virtual Comment System",
+	"description": "Virtual Comment System",
 	"version": "0.0.1",
-	"publisher": "vscode-samples",
 	"private": true,
 	"license": "MIT",
 	"repository": {
@@ -23,25 +22,16 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "mywiki.createNote",
-				"title": "Create Note",
+				"command": "mywiki.addComment",
+				"title": "Add Comment",
 				"enablement": "!commentIsEmpty"
 			},
 			{
-				"command": "mywiki.replyNote",
-				"title": "Reply",
-				"enablement": "!commentIsEmpty"
+				"command": "mywiki.editComment",
+				"title": "Edit"
 			},
 			{
-				"command": "mywiki.editNote",
-				"title": "Edit",
-				"icon": {
-					"dark": "resources/edit_inverse.svg",
-					"light": "resources/edit.svg"
-				}
-			},
-			{
-				"command": "mywiki.deleteNote",
+				"command": "mywiki.deleteComment",
 				"title": "Delete",
 				"icon": {
 					"dark": "resources/close_inverse.svg",
@@ -49,109 +39,61 @@
 				}
 			},
 			{
-				"command": "mywiki.deleteNoteComment",
-				"title": "Delete",
-				"icon": {
-					"dark": "resources/close_inverse.svg",
-					"light": "resources/close.svg"
-				}
-			},
-			{
-				"command": "mywiki.saveNote",
+				"command": "mywiki.saveComment",
 				"title": "Save"
 			},
 			{
-				"command": "mywiki.cancelsaveNote",
+				"command": "mywiki.cancelsaveComment",
 				"title": "Cancel"
-			},
-			{
-				"command": "mywiki.startDraft",
-				"title": "Start Draft",
-				"enablement": "!commentIsEmpty"
-			},
-			{
-				"command": "mywiki.finishDraft",
-				"title": "Finish Draft"
-			},
-			{
-				"command": "mywiki.dispose",
-				"title": "Remove All Notes"
-			},
-			{
-				"command": "mywiki.getComments",
-				"title": "Get Comments"
 			}
 		],
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "mywiki.createNote",
+					"command": "mywiki.addComment",
 					"when": "false"
 				},
 				{
-					"command": "mywiki.replyNote",
+					"command": "mywiki.editComment",
 					"when": "false"
 				},
 				{
-					"command": "mywiki.deleteNote",
-					"when": "false"
-				},
-				{
-					"command": "mywiki.deleteNoteComment",
+					"command": "mywiki.deleteComment",
 					"when": "false"
 				}
 			],
 			"comments/commentThread/title": [
 				{
-					"command": "mywiki.deleteNote",
+					"command": "mywiki.deleteComment",
 					"group": "navigation",
-					"when": "commentController == comment-sample && !commentThreadIsEmpty"
+					"when": "commentController == virtual-comment-system && !commentThreadIsEmpty"
 				}
 			],
+
 			"comments/commentThread/context": [
 				{
-					"command": "mywiki.createNote",
+					"command": "mywiki.addComment",
 					"group": "inline",
-					"when": "commentController == comment-sample && commentThreadIsEmpty"
-				},
-				{
-					"command": "mywiki.replyNote",
-					"group": "inline",
-					"when": "commentController == comment-sample && !commentThreadIsEmpty"
-				},
-				{
-					"command": "mywiki.startDraft",
-					"group": "inline",
-					"when": "commentController == comment-sample && commentThreadIsEmpty"
-				},
-				{
-					"command": "mywiki.finishDraft",
-					"group": "inline",
-					"when": "commentController == comment-sample && commentThread == draft"
+					"when": "commentController == virtual-comment-system && commentThreadIsEmpty"
 				}
 			],
 			"comments/comment/title": [
 				{
-					"command": "mywiki.editNote",
+					"command": "mywiki.editComment",
 					"group": "group@1",
-					"when": "commentController == comment-sample"
-				},
-				{
-					"command": "mywiki.deleteNoteComment",
-					"group": "group@2",
-					"when": "commentController == comment-sample && comment == canDelete"
+					"when": "commentController == virtual-comment-system"
 				}
 			],
 			"comments/comment/context": [
 				{
-					"command": "mywiki.cancelsaveNote",
+					"command": "mywiki.cancelsaveComment",
 					"group": "inline@1",
-					"when": "commentController == comment-sample"
+					"when": "commentController == virtual-comment-system"
 				},
 				{
-					"command": "mywiki.saveNote",
+					"command": "mywiki.saveComment",
 					"group": "inline@2",
-					"when": "commentController == comment-sample"
+					"when": "commentController == virtual-comment-system"
 				}
 			]
 		}
