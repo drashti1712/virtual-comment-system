@@ -1,4 +1,4 @@
-# Commenting API Example
+# Comment Extension
 
 This sample shows
 

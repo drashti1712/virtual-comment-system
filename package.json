@@ -27,6 +27,11 @@
 				"enablement": "!commentIsEmpty"
 			},
 			{
+				"command": "mywiki.addSnippet",
+				"title": "Add Snippet",
+				"enablement": "commentIsEmpty"
+			},
+			{
 				"command": "mywiki.editComment",
 				"title": "Edit"
 			},
@@ -54,6 +59,10 @@
 					"when": "false"
 				},
 				{
+					"command": "mywiki.addSnippet",
+					"when": "false"
+				},
+				{
 					"command": "mywiki.editComment",
 					"when": "false"
 				},
@@ -75,13 +84,18 @@
 					"command": "mywiki.addComment",
 					"group": "inline",
 					"when": "commentController == virtual-comment-system && commentThreadIsEmpty"
+				},
+				{
+					"command": "mywiki.addSnippet",
+					"group": "inline",
+					"when": "commentController == virtual-comment-system && commentThreadIsEmpty"
 				}
 			],
 			"comments/comment/title": [
 				{
 					"command": "mywiki.editComment",
 					"group": "group@1",
-					"when": "commentController == virtual-comment-system"
+					"when": "commentController == virtual-comment-system && comment != snippet"
 				}
 			],
 			"comments/comment/context": [
