@@ -3,12 +3,14 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import path = require("path");
-import { isSnippet, extractFirstLine, getSnippet } from "./snippet";
-import { config, lineConfig } from "./path";
+import { getSnippet } from "./snippet";
+import { config } from "./config";
+import { showComments, lineChangeFlag } from "./showComments";
+import showCommentListPanel from "./webView/webViewPanel";
+import editComment from "./editComment";
 
 let commentId = 1;
-
-class NewComment implements vscode.Comment {
+export class NewComment implements vscode.Comment {
   id: number;
   label: string | undefined;
   savedBody: string | vscode.MarkdownString;
@@ -27,16 +29,10 @@ class NewComment implements vscode.Comment {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const commentController = vscode.comments.createCommentController(
-    "virtual-comment-system",
-    "Virtual Comment System"
-  );
+  const commentController = vscode.comments.createCommentController( "virtual-comment-system", "Virtual Comment System");
   context.subscriptions.push(commentController);
 
-  commentController.commentingRangeProvider = {
-    provideCommentingRanges: (
-      document: vscode.TextDocument
-    ) => {
+  commentController.commentingRangeProvider = { provideCommentingRanges: (document: vscode.TextDocument) => {
       return [new vscode.Range(0, 0, document.lineCount - 1, 0)];
     },
   };
@@ -48,31 +44,26 @@ export function activate(context: vscode.ExtensionContext) {
 
   let commentProvider = showComments();
 
-  vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
-    // when you change text editor range
-  });
-
   vscode.workspace.onDidSaveTextDocument((document: vscode.TextDocument) => {
-	//modify lines and show codelens - 1
-	console.log("saved!!", document.lineCount);
-	const newLC = document.lineCount;
-	if(lineConfig.originalLC === newLC) {
-		console.log("No changes!!");
-	} else {
-		lineConfig.buffer = lineConfig.originalLC - newLC;
-		lineConfig.originalLC = newLC;
-	}
 	commentProvider = showComments();
   });
 
   vscode.workspace.onDidChangeTextDocument((event) => {
 	//disable codelens - 2
 	commentProvider.dispose();
-	const editedDocument = event.document;
-  const editedLine = editedDocument.lineAt(event.contentChanges[0].range.start);
-  const editedLineNumber = editedLine.lineNumber;
-	lineConfig.editedLine = editedLineNumber+1;
-  console.log(`Edited line number: ${editedLineNumber+1}`);
+	// const editedDocument = event.document;
+  // const editedLine = editedDocument.lineAt(event.contentChanges[0].range.start);
+  // const editedLineNumber = editedLine.lineNumber;
+	// // lineConfig.e/ditedLine = editedLineNumber+1;
+  // const str = editedDocument.lineAt(editedLineNumber).text;
+  // if (str !== "") {
+  //   // edit the str hash to btoa(str)
+  //   editLineText(editedLineNumber+1, str);
+  // }
+  });
+
+  vscode.window.onDidChangeTextEditorViewColumn((event) => {
+    console.log("viewColumn change");
   });
 
   vscode.window.onDidChangeActiveTextEditor((event) => {
@@ -80,26 +71,32 @@ export function activate(context: vscode.ExtensionContext) {
     //changing filePath on tab change
     const newStr = event.document.uri.path.split(config.folderName);
     const newStr2 = path.join(newStr[0], config.folderName, ".docs", newStr[1]);
-
     config.currentFilePath = event.document.uri.path;
-    config.commentJSONPath = (newStr2 + ".json")
-      .replace(/\\/g, "\\\\")
-      .slice(2);
-    
-	//changing buffer, editedLineNumber, originalLC
-    lineConfig.originalLC = event.document.lineCount;
-	lineConfig.buffer = 0;
-	lineConfig.editedLine = -1;
-    console.log("Text editor changed", lineConfig.originalLC, lineConfig.buffer);
-
-	commentProvider.dispose();
+    config.commentJSONPath = (newStr2 + ".json");
+    config.document = vscode.window.activeTextEditor?.document;
+    config.folderName = vscode.workspace.workspaceFolders !== undefined? vscode.workspace.workspaceFolders[0].name : "";
+    config.fileName = newStr2.slice(newStr2.lastIndexOf('/')+1,newStr2.length);
+    commentProvider.dispose();
     commentProvider = showComments();
   });
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "mywiki.addComment",
-      (reply: vscode.CommentReply) => {
+  context.subscriptions.push(vscode.commands.registerCommand('mywiki.showCommentNotifications', () => {
+    if(!lineChangeFlag  && config.changedComments.length !== 0) {
+      showCommentListPanel(config.changedComments, context, commentController);
+    }
+  }));
+
+  context.subscriptions.push(vscode.commands.registerCommand('mywiki.showNoChangesCommentsMessage', () => {
+    vscode.window.showInformationMessage("All good! No modified code associated with the comments.");
+  }));
+
+  // const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  // statusBarItem.color = "lightblue";
+  // statusBarItem.text = "$(extensions-info-message) comments";
+  // statusBarItem.command = "mywiki.showCommentNotifications";
+  // statusBarItem.show();
+
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.addComment", (reply: vscode.CommentReply) => {
         const thread = reply.thread;
         thread.canReply = false;
         thread.label = " ";
@@ -121,10 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "mywiki.addSnippet",
-      (reply: vscode.CommentReply) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.addSnippet", (reply: vscode.CommentReply) => {
         const lineNo = reply.thread.range.start.line;
         const lineText = config.document?.lineAt(lineNo).text;
         const snippet = getSnippet(lineText);
@@ -144,24 +138,20 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "mywiki.deleteComment",
-      (thread: vscode.CommentThread) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.deleteComment", (thread: vscode.CommentThread) => {
         const content = fs.existsSync(config.commentJSONPath)
           ? JSON.parse(fs.readFileSync(config.commentJSONPath, "utf-8"))
-          : [];
-        const index = content.findIndex(
-          (obj: { text: string | vscode.MarkdownString }) =>
-            obj.text === thread.comments[0].body
-        );
-        if (index !== -1) {
-          content.splice(index, 1);
+          : {};
+        for (const key in content) {
+          if (content[key] === thread.comments[0].body) {
+            delete content[key];
+            fs.writeFileSync(
+              config.commentJSONPath,
+              JSON.stringify(content, null, 2)
+            );
+            break;
+          }
         }
-        fs.writeFileSync(
-          config.commentJSONPath,
-          JSON.stringify(content, null, 2)
-        );
         thread.dispose();
         commentProvider.dispose();
         commentProvider = showComments();
@@ -169,10 +159,8 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "mywiki.cancelsaveComment",
-      (comment: NewComment) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.cancelsaveComment", (comment: NewComment) => {
+    console.log("🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏 CANCEL CLICKED");
         if (!comment.parent) {
           return;
         }
@@ -189,10 +177,7 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "mywiki.saveComment",
-      (comment: NewComment) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.saveComment", (comment: NewComment) => {
         comment.mode = vscode.CommentMode.Preview;
         if (comment.contextValue === "snippet") {
           writeToFile(comment);
@@ -206,10 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "mywiki.clickComment",
-      (text: string, lineNumber: number) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.clickComment", (text: string, lineNumber: number) => {
         commentProvider.dispose();
         commentProvider = showComments();
         const newComment = new NewComment(
@@ -231,88 +213,30 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  function showComments() {
-	console.log('lineConfig', lineConfig);
-    const content = fs.existsSync(config.commentJSONPath)
-      ? JSON.parse(fs.readFileSync(config.commentJSONPath, "utf-8"))
-      : [];
-	console.log(content);
-    return vscode.languages.registerCodeLensProvider(
-      { scheme: "file" },
-      {
-        provideCodeLenses(
-          document: vscode.TextDocument,
-          token: vscode.CancellationToken
-        ): vscode.ProviderResult<vscode.CodeLens[]> {
-          const codeLenses: vscode.CodeLens[] = [];
-          const existingCodeLensRanges: vscode.Range[] = [];
-
-          // Iterate over existing CodeLenses and store their ranges
-          for (const codeLens of codeLenses) {
-            existingCodeLensRanges.push(codeLens.range);
-          }
-          for (const entry of content) {
-			//add logic to set new line number
-			if(lineConfig.buffer !== 0 && entry.lineNumber> (lineConfig.editedLine+lineConfig.buffer)) {
-				entry.lineNumber = entry.lineNumber - lineConfig.buffer;
-				//modify line Number in json file
-			}
-			//original code
-            const commentText = entry.text;
-            const range = new vscode.Range(
-              entry.lineNumber - 1,
-              0,
-              entry.lineNumber - 1,
-              0
-            );
-            if (
-              !existingCodeLensRanges.some((existingRange) =>
-                existingRange.contains(range)
-              )
-            ) {
-              const command: vscode.Command = {
-                title: isSnippet(commentText)
-                  ? extractFirstLine(commentText)
-                  : commentText,
-                command: "mywiki.clickComment",
-                tooltip: commentText.replace(/(?:\r\n|\r|\n)/g, "\n"),
-                arguments: [commentText, entry.lineNumber],
-              };
-              const codeLens = new vscode.CodeLens(range, command);
-              codeLenses.push(codeLens);
-            }
-          }
-		// console.log("Content", content);
-		//writing modified data back
-		const jsonContent = JSON.stringify(content, null, 2);
-		fs.writeFileSync(config.commentJSONPath, jsonContent, "utf-8");
-          return codeLenses;
-        },
-      }
-    );
-  }
+  function createCommentObject(key: string, value: string): Record<string, string> {
+    const obj: Record<string, string> = {};
+    obj[key] = value;
+    return obj;
+}
 
   function writeToFile(newComment: NewComment) {
     const lineNo = newComment.parent
       ? newComment.parent.range.start.line + 1
       : newComment.line;
-    const commentObj = [
-      {
-        lineNumber: lineNo,
-        text: newComment.body,
-      },
-    ];
+    const lineText = config.document?.lineAt(lineNo-1).text || '';
+    const commentObj = createCommentObject(lineNo + "-" + btoa(lineText), newComment.body.toString());
     // Read the existing data from the file
     let existingData: any[] = [];
     const folderPath = config.commentJSONPath;
-    const separatingIndex = folderPath.lastIndexOf("\\\\");
+    const separatingIndex = folderPath.lastIndexOf("/");
     const p1 = folderPath.slice(0, separatingIndex);
     //case: file already exists
     if (fs.existsSync(folderPath)) {
       const fileContent = fs.readFileSync(folderPath, "utf8");
       existingData = JSON.parse(fileContent);
     }
-    const updatedData = [...existingData, ...commentObj];
+    
+    const updatedData = {...existingData, ...commentObj};
     const jsonContent = JSON.stringify(updatedData, null, 2);
     try {
       fs.mkdirSync(p1, { recursive: true });
@@ -320,24 +244,5 @@ export function activate(context: vscode.ExtensionContext) {
       console.log(e);
     }
     fs.writeFileSync(folderPath, jsonContent, "utf8");
-  }
-
-  function editComment(newComment: NewComment) {
-    let existingData: any[] = [];
-    //case: file already exists
-    if (fs.existsSync(config.commentJSONPath)) {
-      const fileContent = fs.readFileSync(config.commentJSONPath, "utf8");
-      existingData = JSON.parse(fileContent);
-    }
-    const matchingObject = existingData.find(
-      (obj: { lineNumber: number }) => obj.lineNumber === newComment.line
-    );
-    if (matchingObject) {
-      matchingObject.text = newComment.body;
-      fs.writeFileSync(
-        config.commentJSONPath,
-        JSON.stringify(existingData, null, 2)
-      );
-    }
   }
 }

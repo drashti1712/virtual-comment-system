@@ -1,13 +1,13 @@
 import { snippets } from "./config";
 
-export function extractFirstLine(comment: string): string | null {
+export function extractFirstLine(comment: string): string {
   comment = comment.trim().replace(/^\/\*\*|\*\/$/g, "");
   const lines = comment.split("\n");
   const trimmedLines = lines.map((line) =>
     line.replace(/^\s*\*\s?/, "").trim()
   );
   const firstLine = trimmedLines.find((line) => line.length > 0);
-  return firstLine ?? null;
+  return firstLine ?? '';
 }
 
 export function isSnippet(comment: string) {

@@ -7,7 +7,7 @@ function extractFirstLine(comment) {
     const lines = comment.split("\n");
     const trimmedLines = lines.map((line) => line.replace(/^\s*\*\s?/, "").trim());
     const firstLine = trimmedLines.find((line) => line.length > 0);
-    return firstLine ?? null;
+    return firstLine ?? '';
 }
 exports.extractFirstLine = extractFirstLine;
 function isSnippet(comment) {
