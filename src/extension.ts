@@ -62,13 +62,8 @@ export function activate(context: vscode.ExtensionContext) {
   // }
   });
 
-  vscode.window.onDidChangeTextEditorViewColumn((event) => {
-    console.log("viewColumn change");
-  });
-
   vscode.window.onDidChangeActiveTextEditor((event) => {
     if (!event) return;
-    //changing filePath on tab change
     const newStr = event.document.uri.path.split(config.folderName);
     const newStr2 = path.join(newStr[0], config.folderName, ".docs", newStr[1]);
     config.currentFilePath = event.document.uri.path;
@@ -85,16 +80,6 @@ export function activate(context: vscode.ExtensionContext) {
       showCommentListPanel(config.changedComments, context, commentController);
     }
   }));
-
-  context.subscriptions.push(vscode.commands.registerCommand('mywiki.showNoChangesCommentsMessage', () => {
-    vscode.window.showInformationMessage("All good! No modified code associated with the comments.");
-  }));
-
-  // const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  // statusBarItem.color = "lightblue";
-  // statusBarItem.text = "$(extensions-info-message) comments";
-  // statusBarItem.command = "mywiki.showCommentNotifications";
-  // statusBarItem.show();
 
   context.subscriptions.push(vscode.commands.registerCommand("mywiki.addComment", (reply: vscode.CommentReply) => {
         const thread = reply.thread;
@@ -160,7 +145,6 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(vscode.commands.registerCommand("mywiki.cancelsaveComment", (comment: NewComment) => {
-    console.log("🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏🍏 CANCEL CLICKED");
         if (!comment.parent) {
           return;
         }

@@ -11,13 +11,14 @@ exports.config = {
     document: activeEditor?.document,
     commentJSONPath: newStr + ".json",
     currentFilePath: activeEditor ? activeEditor.document.fileName : "",
-    changedComments: [{ lineNumber: 33, text: 'random text' }],
-    fileName: ""
+    changedComments: [{ lineNumber: 0, text: 'random text' }],
+    fileName: "comments",
+    isSnippet: false
 };
 exports.snippets = {
     function: "/**\n* This is a function.\n*\n* @param {string} n - A string param\n* @param {string} [o] - A optional string param\n* @param {string} [d=DefaultValue] - A optional string param\n* @return {string} A good string\n*\n* @example\n*\n*     foo('hello')\n*/",
     class: "/**\n* Represents a class.\n* @constructor\n* @param {type} x - Parameter x.\n* @param {type} y - Parameter y.\n*/",
     variable: "/**\n* Variable Name\n* @type {variable-type}\n*/",
-    default: "This is a default comment"
+    default: "/**\n* Default comment\n*/"
 };
 //# sourceMappingURL=config.js.map

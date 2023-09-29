@@ -1,6 +1,7 @@
 {
 	"name": "virtual-comment-system",
 	"displayName": "Virtual Comment System",
+	"publisher": "virtual-comments",
 	"description": "Virtual Comment System",
 	"version": "0.0.1",
 	"private": true,
@@ -122,8 +123,7 @@
 		"viewsContainers": {
 			"panel": [{
 				"id": "comments-panel",
-          		"title": "Comment Panel",
-          		"icon": "resources/comment-notif-icon.svg"
+          		"title": "Comment Panel"
 			}]
 		},
 		"views": {
