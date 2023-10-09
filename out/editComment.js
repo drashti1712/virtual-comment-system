@@ -1,8 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// import * as vscode from "vscode";
 const fs = require("fs");
-// import path = require("path");
 const config_1 = require("./config");
 function editComment(newComment) {
     let existingData;
