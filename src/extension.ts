@@ -50,7 +50,6 @@ export function activate(context: vscode.ExtensionContext) {
   languages.registerCodeLensProvider({ scheme: "file" }, codelensProvider);
 
   vscode.window.tabGroups.onDidChangeTabs((tabChangeEvent: any) => {
-    // If tabs are closed no longer track their activity
     disposeAllCommentThreads();
     showCommentThread(tabChangeEvent?.changed[0].input.uri || undefined);
   });
@@ -145,13 +144,6 @@ export function activate(context: vscode.ExtensionContext) {
     if (!comment.parent) {
       return;
     }
-    /*comment.parent.comments = comment.parent.comments.map((cmt) => {
-      if ((cmt as NewComment).id === comment.id) {
-        cmt.body = (cmt as NewComment).savedBody;
-        cmt.mode = vscode.CommentMode.Preview;
-      }
-      return cmt;
-    });*/
     comment.parent.dispose();
     disposeAllCommentThreads();
     showCommentThread();
@@ -240,7 +232,6 @@ export function activate(context: vscode.ExtensionContext) {
         const comments = fs.existsSync(jsonPath) ? JSON.parse(fs.readFileSync(jsonPath, "utf-8")) : {};
         for (const key in comments) {
           const value = comments[key];
-          //parsing the key to get line number
           const lineNumber = +key.split('-')[0];
           const uri = <vscode.Uri>path || currentActiveFile || vscode.window.activeTextEditor?.document.uri;
           const commentThread = commentController.createCommentThread(uri, new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0), []);

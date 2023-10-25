@@ -11,13 +11,11 @@ import { isSnippet, extractFirstLine } from "./snippet";
 export class CodelensProvider implements vscode.CodeLensProvider {
 
 	private codeLenses: vscode.CodeLens[] = [];
-	// private regex: RegExp;
 	private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 	public lineChangeFlag = false;
 	private statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	constructor() {
-		// this.regex = /(.+)/g;
 		this.statusBarItem.color = "green";
 		this.statusBarItem.text = "$(extensions-info-message) comments";
 		this.statusBarItem.hide();
@@ -33,18 +31,14 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 		this.codeLenses = [];
 		this.statusBarItem.hide();
 		const jsonData = fs.existsSync(config.commentJSONPath) ? JSON.parse(fs.readFileSync(config.commentJSONPath, "utf-8")) : {};
-		// const codeLenses: vscode.CodeLens[] = [];
 		const existingCodeLensRanges: vscode.Range[] = [];
 		console.log("executed this line of code");
-		// Iterate over existing CodeLenses and store their ranges
 		for (const codeLens of this.codeLenses) {
 			existingCodeLensRanges.push(codeLens.range);
 		}
 		config.changedComments = [];
 		for (const key in jsonData) {
 			const value = jsonData[key];
-
-			//parsing the key to get line number
 			let lineNumber = +key.split('-')[0];
 			const lineText = atob(key.split('-')[1]);
 
@@ -53,8 +47,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 					const line = document.lineAt(lineIndex);
 					if (line.text === (lineText)) {
 						this.lineChangeFlag = true;
-						lineNumber = line.lineNumber + 1; // Line numbers are 0-based
-						//changing the line number in json file as well
+						lineNumber = line.lineNumber + 1; 
 						const newKey = lineNumber + "-" + btoa(lineText);
 						const value = jsonData[key];
 						delete jsonData[key];
@@ -68,7 +61,6 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 						this.lineChangeFlag = false;
 					}
 				}
-				// line maybe edited or deleted
 				if (!this.lineChangeFlag) {
 					const changedCommentObject = {
 						lineNumber: lineNumber,
