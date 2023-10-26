@@ -115,11 +115,13 @@
 			]
 		},
 		"viewsContainers": {
-			"panel": [{
-				"id": "comments-panel",
-				"icon": "",
-          		"title": "Comment Panel"
-			}]
+			"panel": [
+				{
+					"icon": "",
+					"id": "comments-panel",
+					"title": "Comment Panel"
+				}
+			]
 		},
 		"views": {
 			"comments-panel": []
