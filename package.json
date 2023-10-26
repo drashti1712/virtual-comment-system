@@ -1,9 +1,10 @@
 {
-	"name": "virtual-comment-system",
-	"displayName": "Virtual Comment System",
+	"name": "virtual-comments",
+	"displayName": "Virtual Comments",
 	"publisher": "virtual-comments",
-	"description": "Virtual Comment System",
-	"version": "0.0.2",
+	"description": "Virtual Comments",
+	"icon": "resources/logo.png",
+	"version": "0.0.3",
 	"private": true,
 	"license": "MIT",
 	"repository": {

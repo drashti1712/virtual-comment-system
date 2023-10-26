@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import * as fs from "fs";
 import { config } from "../config";
 import { NewComment, commentCache } from '../extension';
 import { getWebViewContent } from './htmlContent';
+// import { keepComment, deleteComment, editComment } from './utils';
 
 let commentListPanel: vscode.WebviewPanel | undefined;
 
@@ -113,5 +113,5 @@ function updateChangedComments(message: any) {
 	if (updatedComments.length === 0) {
 		commentListPanel?.dispose();
 	}
-	if (commentListPanel) commentListPanel.webview.html = getWebViewContent(updatedComments);
+  if (commentListPanel) commentListPanel.webview.html = getWebViewContent(updatedComments);
 }
