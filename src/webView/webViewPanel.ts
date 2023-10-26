@@ -1,33 +1,34 @@
 import * as vscode from 'vscode';
 import { config } from "../config";
+import { NewComment, commentCache } from '../extension';
 import { getWebViewContent } from './htmlContent';
-import { keepComment, deleteComment, editComment } from './utils';
+// import { keepComment, deleteComment, editComment } from './utils';
 
 let commentListPanel: vscode.WebviewPanel | undefined;
 
-export default function showCommentListPanel(comments: { lineNumber: number; text: string; }[], context: vscode.ExtensionContext, commentController: vscode.CommentController) {
-    if (commentListPanel) {
-        commentListPanel.reveal();
-    } else {
-        commentListPanel = vscode.window.createWebviewPanel(
-            'commentList',
-            config.fileName,
-            vscode.ViewColumn.Two,
-            {
+export default async function showCommentListPanel(comments: { lineNumber: number; text: string; }[], context: vscode.ExtensionContext, commentController: vscode.CommentController) {
+	if (commentListPanel) {
+		commentListPanel.reveal();
+	} else {
+		commentListPanel = vscode.window.createWebviewPanel(
+			'commentList',
+			config.fileName,
+			vscode.ViewColumn.Two,
+			{
 				enableScripts: true,
 			}
-        );
-        commentListPanel.webview.html = getWebViewContent(comments);
-        commentListPanel.onDidDispose(() => {
-            commentListPanel = undefined;
-        });
-		vscode.window.onDidChangeActiveTextEditor((e)=> {
-			if(!commentListPanel?.active) {
+		);
+		commentListPanel.webview.html = getWebViewContent(comments);
+		commentListPanel.onDidDispose(() => {
+			commentListPanel = undefined;
+		});
+		vscode.window.onDidChangeActiveTextEditor((e) => {
+			if (!commentListPanel?.active) {
 				commentListPanel?.dispose();
 			}
 		});
 		commentListPanel.webview.onDidReceiveMessage(message => {
-			switch(message.command) {
+			switch (message.command) {
 				case 'delete': {
 					deleteComment(message.text);
 					vscode.window.showInformationMessage("Comment deleted!");
@@ -47,14 +48,64 @@ export default function showCommentListPanel(comments: { lineNumber: number; tex
 					return;
 				}
 			}
-		}, undefined, context.subscriptions); 
-    }
+		}, undefined, context.subscriptions);
+	}
+}
+
+function keepComment(commentText: string) {
+	// from comment text find line number
+	const content = commentCache.get(config.commentJSONPath) || {};
+	for (const key in content) {
+		if (content[key] === commentText) {
+			const lineNumber = +key.split('-')[0];
+			const codeLine = config.document?.lineAt(lineNumber - 1).text || "";
+			const newKey = lineNumber + "-" + btoa(codeLine);
+			const value = content[key];
+			delete content[key];
+			content[newKey] = value;
+			fs.promises.writeFile(config.commentJSONPath,
+				JSON.stringify(content, null, 2));
+			break;
+		}
+	}
+}
+
+function deleteComment(commentText: string) {
+	const content = commentCache.get(config.commentJSONPath) || {};
+	for (const key in content) {
+		if (content[key] === commentText) {
+			delete content[key];
+			fs.promises.writeFile(
+				config.commentJSONPath,
+				JSON.stringify(content, null, 2)
+			);
+			break;
+		}
+	}
+}
+
+function editComment(message: any, commentController: vscode.CommentController) {
+	const newComment = new NewComment(
+		message.text,
+		message.lineNumber,
+		vscode.CommentMode.Editing,
+		{ name: " " }
+	);
+	const thread = commentController.createCommentThread(
+		vscode.Uri.file(config.currentFilePath),
+		new vscode.Range(message.lineNumber - 1, 0, message.lineNumber - 1, 0),
+		[newComment]
+	);
+	thread.canReply = false;
+	thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+	thread.label = " ";
+	newComment.parent = thread;
 }
 
 function updateChangedComments(message: any) {
 	const updatedComments: { lineNumber: number; text: string; }[] = [];
 	config.changedComments.forEach(comment => {
-		if(comment.lineNumber != message.lineNumber) {
+		if (comment.lineNumber != message.lineNumber) {
 			updatedComments.push(comment);
 		}
 	});
@@ -62,6 +113,5 @@ function updateChangedComments(message: any) {
 	if (updatedComments.length === 0) {
 		commentListPanel?.dispose();
 	}
-	if(commentListPanel) commentListPanel.webview.html = getWebViewContent(updatedComments);
+  if (commentListPanel) commentListPanel.webview.html = getWebViewContent(updatedComments);
 }
-

@@ -1,24 +1,17 @@
 import * as fs from "fs";
 import { config } from "./config";
-import { NewComment } from './extension';
+import { NewComment, commentCache } from './extension';
 
-export default function editComment(newComment: NewComment) {
-    let existingData: any;
-    //case: file already exists
-    if (fs.existsSync(config.commentJSONPath)) {
-      const fileContent = fs.readFileSync(config.commentJSONPath, "utf8");
-      existingData = JSON.parse(fileContent);
-    }
-
-    for (const key in existingData) {
-      const lineNumber = +key.split('-')[0];
-      if (lineNumber == newComment.line) {
-        existingData[key] = newComment.body.toString();
-        fs.writeFileSync(
-          config.commentJSONPath,
-          JSON.stringify(existingData, null, 2)
-        );
-        break;
-      }			
+export default async function editComment(newComment: NewComment) { 
+  //case: file already exists
+  const existingData = commentCache.get(config.commentJSONPath) || {};
+  for (const key in existingData) {
+    const lineNumber = +key.split('-')[0];
+    if (lineNumber == newComment.line) {
+      existingData[key] = newComment.body.toString();
+      fs.promises.writeFile(config.commentJSONPath,
+        JSON.stringify(existingData, null, 2));
+      break;
     }
   }
+}
