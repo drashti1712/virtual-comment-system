@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { config } from "../config";
 import { NewComment, commentCache } from '../extension';
 import { getWebViewContent } from './htmlContent';
-// import { keepComment, deleteComment, editComment } from './utils';
+import { keepComment, deleteComment, editComment } from './utils';
 
 let commentListPanel: vscode.WebviewPanel | undefined;
 
@@ -50,56 +50,6 @@ export default async function showCommentListPanel(comments: { lineNumber: numbe
 			}
 		}, undefined, context.subscriptions);
 	}
-}
-
-function keepComment(commentText: string) {
-	// from comment text find line number
-	const content = commentCache.get(config.commentJSONPath) || {};
-	for (const key in content) {
-		if (content[key] === commentText) {
-			const lineNumber = +key.split('-')[0];
-			const codeLine = config.document?.lineAt(lineNumber - 1).text || "";
-			const newKey = lineNumber + "-" + btoa(codeLine);
-			const value = content[key];
-			delete content[key];
-			content[newKey] = value;
-			fs.promises.writeFile(config.commentJSONPath,
-				JSON.stringify(content, null, 2));
-			break;
-		}
-	}
-}
-
-function deleteComment(commentText: string) {
-	const content = commentCache.get(config.commentJSONPath) || {};
-	for (const key in content) {
-		if (content[key] === commentText) {
-			delete content[key];
-			fs.promises.writeFile(
-				config.commentJSONPath,
-				JSON.stringify(content, null, 2)
-			);
-			break;
-		}
-	}
-}
-
-function editComment(message: any, commentController: vscode.CommentController) {
-	const newComment = new NewComment(
-		message.text,
-		message.lineNumber,
-		vscode.CommentMode.Editing,
-		{ name: " " }
-	);
-	const thread = commentController.createCommentThread(
-		vscode.Uri.file(config.currentFilePath),
-		new vscode.Range(message.lineNumber - 1, 0, message.lineNumber - 1, 0),
-		[newComment]
-	);
-	thread.canReply = false;
-	thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-	thread.label = " ";
-	newComment.parent = thread;
 }
 
 function updateChangedComments(message: any) {
