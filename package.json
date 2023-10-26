@@ -51,6 +51,10 @@
 			{
 				"command": "showCommentNotifications",
 				"title": "text"
+			},
+			{
+				"command": "mywiki.retrieveComments",
+				"title": "retrieve Comments"
 			}
 		],
 		"menus": {

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { config, snippets } from "./config";
 import { isSnippet, extractFirstLine } from "./snippet";
+import { commentCache } from "./extension";
 
 /**
  * CodelensProvider
@@ -27,10 +28,10 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 	public docChanged() {
 		this._onDidChangeCodeLenses.fire();
 	}
-	public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+	public async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
 		this.codeLenses = [];
 		this.statusBarItem.hide();
-		const jsonData = fs.existsSync(config.commentJSONPath) ? JSON.parse(fs.readFileSync(config.commentJSONPath, "utf-8")) : {};
+		const jsonData = commentCache.get(config.commentJSONPath) || {};
 		const existingCodeLensRanges: vscode.Range[] = [];
 		console.log("executed this line of code");
 		for (const codeLens of this.codeLenses) {
@@ -47,12 +48,13 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 					const line = document.lineAt(lineIndex);
 					if (line.text === (lineText)) {
 						this.lineChangeFlag = true;
-						lineNumber = line.lineNumber + 1; 
+						lineNumber = line.lineNumber + 1;
 						const newKey = lineNumber + "-" + btoa(lineText);
 						const value = jsonData[key];
 						delete jsonData[key];
 						jsonData[newKey] = value;
-						fs.writeFileSync(
+						commentCache.set(config.commentJSONPath, jsonData);
+						fs.promises.writeFile(
 							config.commentJSONPath,
 							JSON.stringify(jsonData, null, 2)
 						);
@@ -91,7 +93,8 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 		}
 
 		const jsonContent = JSON.stringify(jsonData, null, 2);
-		fs.writeFileSync(config.commentJSONPath, jsonContent, "utf-8");
+		commentCache.set(config.commentJSONPath, jsonData);
+		fs.promises.writeFile(config.commentJSONPath, jsonContent, "utf-8");
 		return this.codeLenses;
 	}
 
