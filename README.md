@@ -1,6 +1,13 @@
 # Virtual Comments Extension for Visual Studio Code
+
 ## Overview
-The Virtual Comment Extension for Visual Studio Code is a powerful tool designed to help developers enhance their code documentation without requiring a build system. It allows you to add the comments via comment threads and view them in the form of codelenses, offering a more efficient way to document your code when traditional JavaScript comments are not feasible.
+The Virtual Comments Extension for Visual Studio Code is a tool designed to help developers with efficient code documentation when traditional JavaScript comments are not feasible.
+
+## Problem Statement
+- Code commenting plays a crucial role in ensuring the long-term maintainability and understanding of code, especially in a growing codebase like Milo.
+- In Milo, we only use comments when really necessary to keep our JavaScript files smaller for faster browser downloads.
+- Comments are not automatically trimmed from the files since Milo does not come with a build system.
+- Virtual comments – solution to solve this problem!
 
 ## Features
 
@@ -8,9 +15,11 @@ The Virtual Comment Extension for Visual Studio Code is a powerful tool designed
 
 - **Virtual Comments**: Add virtual comments to your code using CodeLenses, making it easier for you and your team to understand your codebase.
 
-- **Interactive Comments**: Click on a virtual comment CodeLens to update or delete the associated comment and its details.
+- **Interactive Comments**: Click on a virtual comment to update or delete the associated comment and its details.
 
 - **Non-Intrusive**: Virtual comments do not impact your code's runtime behavior, ensuring your project remains efficient.
+
+- **Dynamic line changing**: Virtual comments also offer a solution when the existing lines of code are moved, updated or deleted in the file.
 
 ---
 

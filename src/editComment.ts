@@ -1,6 +1,4 @@
-// import * as vscode from "vscode";
 import * as fs from "fs";
-// import path = require("path");
 import { config } from "./config";
 import { NewComment } from './extension';
 
