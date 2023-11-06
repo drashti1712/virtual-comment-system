@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from "fs";
 import { config } from "../config";
-import { NewComment, commentCache } from '../extension';
+import { NewComment } from '../extension';
 
-export function keepComment(commentText: string) {
+export async function keepComment(commentText: string) {
 	// from comment text find line number
-	const content = commentCache.get(config.commentJSONPath) || {};
+	const content = JSON.parse((await fs.promises.readFile(config.commentJSONPath)).toString()) || {};
 	for (const key in content) {
 		if (content[key] === commentText) {
 			const lineNumber = +key.split('-')[0];
@@ -21,8 +21,8 @@ export function keepComment(commentText: string) {
 	}
 }
 
-export function deleteComment(commentText: string) {
-	const content = commentCache.get(config.commentJSONPath) || {};
+export async function deleteComment(commentText: string) {
+	const content = JSON.parse((await fs.promises.readFile(config.commentJSONPath)).toString()) || {};
 	for (const key in content) {
 		if (content[key] === commentText) {
 			delete content[key];

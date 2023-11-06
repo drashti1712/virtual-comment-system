@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { config, snippets } from "./config";
 import { isSnippet, extractFirstLine } from "./snippet";
-import { commentCache } from "./extension";
 
 /**
  * CodelensProvider
@@ -29,9 +28,12 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 		this._onDidChangeCodeLenses.fire();
 	}
 	public async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
+		if (document.uri.path.includes('/.docs/')) {
+			return this.codeLenses;
+		}
 		this.codeLenses = [];
 		this.statusBarItem.hide();
-		const jsonData = commentCache.get(config.commentJSONPath) || {};
+		const jsonData = JSON.parse((await fs.promises.readFile(config.commentJSONPath)).toString()) || {};
 		const existingCodeLensRanges: vscode.Range[] = [];
 		console.log("executed this line of code");
 		for (const codeLens of this.codeLenses) {
@@ -44,16 +46,19 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 			const lineText = atob(key.split('-')[1]);
 
 			if (document.lineAt(lineNumber - 1).text !== lineText) {
+				if (lineText === '') {
+					//remove comment ||  hide them
+					continue;
+				}
 				for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++) {
 					const line = document.lineAt(lineIndex);
-					if (line.text === (lineText)) {
+					if (line.text === (lineText) && lineText !== '') {
 						this.lineChangeFlag = true;
 						lineNumber = line.lineNumber + 1;
 						const newKey = lineNumber + "-" + btoa(lineText);
 						const value = jsonData[key];
 						delete jsonData[key];
 						jsonData[newKey] = value;
-						commentCache.set(config.commentJSONPath, jsonData);
 						fs.promises.writeFile(
 							config.commentJSONPath,
 							JSON.stringify(jsonData, null, 2)
@@ -70,7 +75,6 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 					};
 					config.changedComments.push(changedCommentObject);
 				}
-
 			}
 			if (!this.lineChangeFlag && config.changedComments.length !== 0) {
 				this.statusBarItem.color = "red";
@@ -93,8 +97,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 		}
 
 		const jsonContent = JSON.stringify(jsonData, null, 2);
-		commentCache.set(config.commentJSONPath, jsonData);
-		fs.promises.writeFile(config.commentJSONPath, jsonContent, "utf-8");
+		fs.promises.writeFile(config.commentJSONPath, jsonContent + "\n", "utf-8");
 		return this.codeLenses;
 	}
 

@@ -12,9 +12,9 @@ import showCommentListPanel from "./webView/webViewPanel";
 
 
 let commentId = 1;
-export let commentCache: Map<string, any> = new Map();
 const commentThreadPool: vscode.CommentThread[] = [];
 let currentActiveFile: vscode.Uri | null = null;
+const commentController = vscode.comments.createCommentController("virtual-comment-system", "Virtual Comment System");
 export class NewComment implements vscode.Comment {
   id: number;
   label: string | undefined;
@@ -31,11 +31,51 @@ export class NewComment implements vscode.Comment {
     this.savedBody = this.body;
     this.label = " ";
   }
+  public static async showCommentThread(path: vscode.Uri | undefined = undefined) {
+    try {
+      const currentFilePath = path?.path || currentActiveFile?.path || vscode.window.activeTextEditor?.document.uri.path;
+      if (currentFilePath) {
+        const workspaceFolderName = vscode.workspace.workspaceFolders !== undefined ? vscode.workspace.workspaceFolders[0].name : "";
+        const pathSplit = currentFilePath.split(workspaceFolderName);
+        pathSplit[1] = "/.docs" + pathSplit[1] + ".json";
+        const jsonPath = pathSplit.join(workspaceFolderName);
+        const document = await vscode.workspace.openTextDocument(currentFilePath);
+        const comments = JSON.parse((await fs.promises.readFile(jsonPath)).toString()) || {};
+        for (const key in comments) {
+          const value = comments[key];
+          const lineNumber = +key.split('-')[0];
+          const lineTextInDoc = document.lineAt(lineNumber-1).text;
+          const lineTextInJson = key.split('-')[1];
+          if (lineTextInJson === '' && lineTextInDoc !== lineTextInJson) {
+          continue;
+          }
+          const uri = <vscode.Uri>path || currentActiveFile || vscode.window.activeTextEditor?.document.uri;
+          const commentThread = commentController.createCommentThread(uri, new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0), []);
+          commentThread.canReply = false;
+          commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
+          const myNewComment = new NewComment(value, lineNumber, vscode.CommentMode.Editing,
+            { name: "" },
+            commentThread,
+            "what's a context value!"
+          );
+          commentThread.comments = [myNewComment];
+          commentThreadPool.push(commentThread);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  public static disposeAllCommentThreads() {
+    console.log("dispoosing all comment threads");
+    for (const thread of commentThreadPool) {
+      thread.dispose();
+    }
+  }
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-  commentCache = await readAllComments();
-  const commentController = vscode.comments.createCommentController("virtual-comment-system", "Virtual Comment System");
   context.subscriptions.push(commentController);
 
   commentController.commentingRangeProvider = {
@@ -47,13 +87,13 @@ export async function activate(context: vscode.ExtensionContext) {
     placeHolder: "Type a new comment or add a snippet",
     prompt: " ",
   };
-  showCommentThread();
+  NewComment.showCommentThread();
   const codelensProvider = new CodelensProvider();
   languages.registerCodeLensProvider({ scheme: "file" }, codelensProvider);
 
   vscode.window.tabGroups.onDidChangeTabs((tabChangeEvent: any) => {
-    disposeAllCommentThreads();
-    showCommentThread(tabChangeEvent?.changed[0].input.uri || undefined);
+    NewComment.disposeAllCommentThreads();
+    NewComment.showCommentThread(tabChangeEvent?.changed[0]?.input.uri || undefined);
   });
 
   vscode.window.onDidChangeActiveTextEditor((event) => {
@@ -77,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   }));
 
-  context.subscriptions.push(vscode.commands.registerCommand("mywiki.addComment", (reply: vscode.CommentReply) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.addComment", async (reply: vscode.CommentReply) => {
     const thread = reply.thread;
     thread.canReply = false;
     thread.label = " ";
@@ -90,26 +130,15 @@ export async function activate(context: vscode.ExtensionContext) {
       undefined
     );
     newComment.label = " ";
-    writeToCache(newComment);
-    writeToFile(newComment);
+    await writeToFile(newComment);
     thread.comments = [...thread.comments, newComment];
-    disposeAllCommentThreads();
-    showCommentThread();
+    NewComment.disposeAllCommentThreads();
+    NewComment.showCommentThread();
     codelensProvider.docChanged();
     thread.dispose();
   }
   )
   );
-
-  context.subscriptions.push(vscode.commands.registerCommand("mywiki.retrieveComments", (reply: vscode.CommentReply) => {
-    //
-    if (vscode.workspace) {
-      commentCache.forEach(async (value, key) => {
-        await fs.promises.mkdir(`${path.dirname(key)}`, { recursive: true });
-        fs.promises.writeFile(`${key}`, JSON.stringify(value, null, 4));
-      });
-    }
-  }));
 
   context.subscriptions.push(vscode.commands.registerCommand("mywiki.addSnippet", (reply: vscode.CommentReply) => {
     const lineNo = reply.thread.range.start.line;
@@ -131,8 +160,8 @@ export async function activate(context: vscode.ExtensionContext) {
   )
   );
 
-  context.subscriptions.push(vscode.commands.registerCommand("mywiki.deleteComment", (comment: NewComment) => {
-    const content = commentCache.get(config.commentJSONPath);
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.deleteComment", async (comment: NewComment) => {
+    const content = JSON.parse((await fs.promises.readFile(config.commentJSONPath)).toString());
     for (const key in content) {
       if (content[key] === comment.body) {
         delete content[key];
@@ -145,8 +174,8 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     comment.parent?.dispose();
     codelensProvider.docChanged();
-    disposeAllCommentThreads();
-    showCommentThread();
+    NewComment.disposeAllCommentThreads();
+    NewComment.showCommentThread();
   }
   )
   );
@@ -156,20 +185,19 @@ export async function activate(context: vscode.ExtensionContext) {
       return;
     }
     comment.parent.dispose();
-    disposeAllCommentThreads();
-    showCommentThread();
+    NewComment.disposeAllCommentThreads();
+    NewComment.showCommentThread();
   }));
 
   context.subscriptions.push(vscode.commands.registerCommand("mywiki.saveComment", (comment: NewComment) => {
     comment.mode = vscode.CommentMode.Preview;
     if (comment.contextValue === "snippet") {
-      writeToCache(comment);
       writeToFile(comment);
     } else {
       editComment(comment);
     }
-    disposeAllCommentThreads();
-    showCommentThread();
+    NewComment.disposeAllCommentThreads();
+    NewComment.showCommentThread();
     codelensProvider.docChanged();
     comment.parent?.dispose();
   }));
@@ -206,17 +234,14 @@ export async function activate(context: vscode.ExtensionContext) {
       : newComment.line;
     const lineText = config.document?.lineAt(lineNo - 1).text || '';
     const commentObj = createCommentObject(lineNo + "-" + btoa(lineText), newComment.body.toString());
-    // Read the existing data from the file
     let existingData: any[] = [];
     const folderPath = config.commentJSONPath;
     const separatingIndex = folderPath.lastIndexOf("/");
     const p1 = folderPath.slice(0, separatingIndex);
-    //case: file already exists
     if (fs.existsSync(folderPath)) {
       const fileContent = await fs.promises.readFile(folderPath, "utf8");
       existingData = JSON.parse(fileContent);
     }
-
     const updatedData = { ...existingData, ...commentObj };
     const jsonContent = JSON.stringify(updatedData, null, 2);
     try {
@@ -226,81 +251,5 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     fs.promises.writeFile(folderPath, jsonContent);
   }
-
-  function disposeAllCommentThreads() {
-    console.log("dispoosing all comment threads");
-    for (const thread of commentThreadPool) {
-      thread.dispose();
-    }
-  }
-
-  function showCommentThread(path: vscode.Uri | undefined = undefined) {
-    try {
-      const currentFilePath = path?.path || currentActiveFile?.path || vscode.window.activeTextEditor?.document.uri.path;
-      if (currentFilePath) {
-        const workspaceFolderName = vscode.workspace.workspaceFolders !== undefined ? vscode.workspace.workspaceFolders[0].name : "";
-        const pathSplit = currentFilePath.split(workspaceFolderName);
-        pathSplit[1] = "/.docs" + pathSplit[1] + ".json";
-        const jsonPath = pathSplit.join(workspaceFolderName);
-        const comments = commentCache.get(jsonPath) || {};
-        for (const key in comments) {
-          const value = comments[key];
-          const lineNumber = +key.split('-')[0];
-          const uri = <vscode.Uri>path || currentActiveFile || vscode.window.activeTextEditor?.document.uri;
-          const commentThread = commentController.createCommentThread(uri, new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0), []);
-          commentThread.canReply = false;
-          commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-          const myNewComment = new NewComment(value, lineNumber, vscode.CommentMode.Editing,
-            { name: "" },
-            commentThread,
-            "what's a context value!"
-          );
-          commentThread.comments = [myNewComment];
-          commentThreadPool.push(commentThread);
-        }
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  function writeToCache(newComment: NewComment) {
-    const lineNo = newComment.parent
-      ? newComment.parent.range.start.line + 1
-      : newComment.line;
-    const lineText = config.document?.lineAt(lineNo - 1).text || '';
-    const commentObj = createCommentObject(lineNo + "-" + btoa(lineText), newComment.body.toString());
-    const folderPath = config.commentJSONPath;
-    const separatingIndex = folderPath.lastIndexOf("/");
-    const p1 = folderPath.slice(0, separatingIndex);
-    const existingData: unknown = commentCache.get(folderPath);
-    const updatedData: unknown = existingData ? { ...existingData, ...commentObj } : commentObj;
-    commentCache.set(folderPath, updatedData);
-  }
-
-  async function readAllComments(): Promise<Map<string, unknown>> {
-    const vCommentsPath = `${(<any>vscode.workspace).workspaceFolders[0].uri.fsPath}/.docs`;
-    if (vscode.workspace != undefined && fs.existsSync(vCommentsPath)) {
-      const files = await getFiles(vCommentsPath);
-      return files;
-    }
-    return new Map();
-  }
-
-  async function getFiles(dir: string, files: Map<string, unknown> = new Map()) {
-    const fileList = await fs.promises.readdir(dir);
-    for (const file of fileList) {
-      const name: string = <string>`${dir}/${file}`;
-      const document = await fs.promises.stat(name);
-      if (document.isDirectory()) {
-        await getFiles(name, files);
-      } else {
-        if (!name.includes('.DS_Store')) {
-          const fileContent = (await fs.promises.readFile(name)).toString();
-          files.set(name, JSON.parse(fileContent));
-        }
-      }
-    }
-    return files;
-  }
 }
+

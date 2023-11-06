@@ -1,10 +1,10 @@
 import * as fs from "fs";
 import { config } from "./config";
-import { NewComment, commentCache } from './extension';
+import { NewComment } from './extension';
 
-export default async function editComment(newComment: NewComment) { 
+export default async function editComment(newComment: NewComment) {
   //case: file already exists
-  const existingData = commentCache.get(config.commentJSONPath) || {};
+  const existingData = JSON.parse((await fs.promises.readFile(config.commentJSONPath)).toString()) || {};
   for (const key in existingData) {
     const lineNumber = +key.split('-')[0];
     if (lineNumber == newComment.line) {
