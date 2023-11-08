@@ -39,11 +39,7 @@
 			},
 			{
 				"command": "mywiki.deleteComment",
-				"title": "Delete",
-				"icon": {
-					"dark": "resources/close_inverse.svg",
-					"light": "resources/close.svg"
-				}
+				"title": "Delete"
 			},
 			{
 				"command": "mywiki.saveComment",
@@ -56,6 +52,10 @@
 			{
 				"command": "showCommentNotifications",
 				"title": "text"
+			},
+			{
+				"command": "mywiki.retrieveComments",
+				"title": "retrieve Comments"
 			}
 		],
 		"menus": {
@@ -81,14 +81,6 @@
 					"when": "false"
 				}
 			],
-			"comments/commentThread/title": [
-				{
-					"command": "mywiki.deleteComment",
-					"group": "navigation",
-					"when": "commentController == virtual-comment-system && !commentThreadIsEmpty"
-				}
-			],
-
 			"comments/commentThread/context": [
 				{
 					"command": "mywiki.addComment",
@@ -118,18 +110,25 @@
 					"command": "mywiki.saveComment",
 					"group": "inline@2",
 					"when": "commentController == virtual-comment-system"
+				},
+				{
+					"command": "mywiki.deleteComment",
+					"group": "inline@2",
+					"when": "commentController == virtual-comment-system && !commentThreadIsEmpty"
 				}
 			]
 		},
 		"viewsContainers": {
-			"panel": [{
-				"id": "comments-panel",
-				"icon": "",
-          		"title": "Comment Panel"
-			}]
+			"panel": [
+				{
+					"icon": "",
+					"id": "comments-panel",
+					"title": "Comment Panel"
+				}
+			]
 		},
 		"views": {
-			"comments-panel":[]
+			"comments-panel": []
 		}
 	},
 	"scripts": {
