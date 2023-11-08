@@ -4,7 +4,6 @@ import * as fs from "fs";
 import path = require("path");
 import * as vscode from "vscode";
 import { config } from "./config";
-import { languages } from 'vscode';
 import { getSnippet } from "./snippet";
 import editComment from "./editComment";
 import { CodelensProvider } from "./codeLensProvider";
@@ -56,7 +55,7 @@ export class NewComment implements vscode.Comment {
           const myNewComment = new NewComment(value, lineNumber, vscode.CommentMode.Editing,
             { name: "" },
             commentThread,
-            "what's a context value!"
+            ""
           );
           commentThread.comments = [myNewComment];
           commentThreadPool.push(commentThread);
@@ -67,8 +66,7 @@ export class NewComment implements vscode.Comment {
     }
   }
 
-  public static disposeAllCommentThreads() {
-    console.log("dispoosing all comment threads");
+  public static disposeAllCommentThreads() { 
     for (const thread of commentThreadPool) {
       thread.dispose();
     }
@@ -89,7 +87,7 @@ export async function activate(context: vscode.ExtensionContext) {
   };
   NewComment.showCommentThread();
   const codelensProvider = new CodelensProvider();
-  languages.registerCodeLensProvider({ scheme: "file" }, codelensProvider);
+  vscode.languages.registerCodeLensProvider({ scheme: "file" }, codelensProvider);
 
   vscode.window.tabGroups.onDidChangeTabs((tabChangeEvent: any) => {
     NewComment.disposeAllCommentThreads();
@@ -100,7 +98,6 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!event) return;
     if (event.document.uri.scheme === 'file' && currentActiveFile?.path !== event?.document.uri.path && !event.document.uri.path.includes('commentinput-1')) {
       currentActiveFile = event?.document.uri;
-      console.log(event.selection.active.line);
       const newStr = event.document.uri.path.split(config.folderName);
       const newStr2 = path.join(newStr[0], config.folderName, ".docs", newStr[1]);
       config.currentFilePath = event.document.uri.path;
@@ -247,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext) {
     try {
       await fs.promises.mkdir(p1, { recursive: true });
     } catch (e) {
-      console.log(e);
+      console.error(e);
     }
     fs.promises.writeFile(folderPath, jsonContent);
   }
