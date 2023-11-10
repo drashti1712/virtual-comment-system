@@ -52,7 +52,7 @@ export class NewComment implements vscode.Comment {
           const commentThread = commentController.createCommentThread(uri, new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0), []);
           commentThread.canReply = false;
           commentThread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
-          const myNewComment = new NewComment(value, lineNumber, vscode.CommentMode.Editing,
+          const myNewComment = new NewComment(value, lineNumber, vscode.CommentMode.Preview,
             { name: "" },
             commentThread,
             ""
