@@ -46,7 +46,7 @@ export class NewComment implements vscode.Comment {
           const lineTextInDoc = document.lineAt(lineNumber-1).text;
           const lineTextInJson = key.split('-')[1];
           if (lineTextInJson === '' && lineTextInDoc !== lineTextInJson) {
-          continue;
+            continue;
           }
           const uri = <vscode.Uri>path || currentActiveFile || vscode.window.activeTextEditor?.document.uri;
           const commentThread = commentController.createCommentThread(uri, new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0), []);
@@ -62,11 +62,12 @@ export class NewComment implements vscode.Comment {
         }
       }
     } catch (error) {
+      vscode.window.showWarningMessage(<string>error);
       console.error(error);
     }
   }
 
-  public static disposeAllCommentThreads() { 
+  public static disposeAllCommentThreads() {
     for (const thread of commentThreadPool) {
       thread.dispose();
     }
@@ -186,12 +187,12 @@ export async function activate(context: vscode.ExtensionContext) {
     NewComment.showCommentThread();
   }));
 
-  context.subscriptions.push(vscode.commands.registerCommand("mywiki.saveComment", (comment: NewComment) => {
+  context.subscriptions.push(vscode.commands.registerCommand("mywiki.saveComment", async (comment: NewComment) => {
     comment.mode = vscode.CommentMode.Preview;
     if (comment.contextValue === "snippet") {
-      writeToFile(comment);
+      await writeToFile(comment);
     } else {
-      editComment(comment);
+      await editComment(comment);
     }
     NewComment.disposeAllCommentThreads();
     NewComment.showCommentThread();
@@ -243,10 +244,10 @@ export async function activate(context: vscode.ExtensionContext) {
     const jsonContent = JSON.stringify(updatedData, null, 2);
     try {
       await fs.promises.mkdir(p1, { recursive: true });
-    } catch (e) {
-      console.error(e);
+      fs.promises.writeFile(folderPath, jsonContent);
+    } catch (e: any) {
+      vscode.window.showErrorMessage(e.message);
     }
-    fs.promises.writeFile(folderPath, jsonContent);
   }
 }
 
