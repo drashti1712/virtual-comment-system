@@ -5,22 +5,22 @@ import { keepComment, deleteComment, editComment } from './utils';
 
 let commentListPanel: vscode.WebviewPanel | undefined;
 
-export default async function showCommentListPanel(comments: { lineNumber: number; text: string; }[], context: vscode.ExtensionContext, commentController: vscode.CommentController) {
-	if (commentListPanel) {
-		commentListPanel.reveal();
-	} else {
-		commentListPanel = vscode.window.createWebviewPanel(
-			'commentList',
-			config.fileName,
-			vscode.ViewColumn.Two,
-			{
+export default function showCommentListPanel(comments: { lineNumber: number; text: string; }[], context: vscode.ExtensionContext, commentController: vscode.CommentController) {
+    if (commentListPanel) {
+        commentListPanel.reveal();
+    } else {
+        commentListPanel = vscode.window.createWebviewPanel(
+            'commentList',
+            config.fileName,
+            vscode.ViewColumn.Two,
+            {
 				enableScripts: true,
 			}
-		);
-		commentListPanel.webview.html = getWebViewContent(comments);
-		commentListPanel.onDidDispose(() => {
-			commentListPanel = undefined;
-		});
+        );
+        commentListPanel.webview.html = getWebViewContent(comments);
+        commentListPanel.onDidDispose(() => {
+            commentListPanel = undefined;
+        });
 		vscode.window.onDidChangeActiveTextEditor((e) => {
 			if (!commentListPanel?.active) {
 				commentListPanel?.dispose();
@@ -47,8 +47,8 @@ export default async function showCommentListPanel(comments: { lineNumber: numbe
 					return;
 				}
 			}
-		}, undefined, context.subscriptions);
-	}
+		}, undefined, context.subscriptions); 
+    }
 }
 
 function updateChangedComments(message: any) {
@@ -64,3 +64,4 @@ function updateChangedComments(message: any) {
 	}
 	if (commentListPanel) commentListPanel.webview.html = getWebViewContent(updatedComments);
 }
+

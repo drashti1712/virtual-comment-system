@@ -3,14 +3,8 @@ import * as fs from 'fs';
 import { config, snippets } from "./config";
 import { isSnippet, extractFirstLine } from "./snippet";
 
-/**
- * CodelensProvider
- */
-
-
 export class CodelensProvider implements vscode.CodeLensProvider {
 
-	private codeLenses: vscode.CodeLens[] = [];
 	private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
 	public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 	public lineChangeFlag = false;
@@ -27,16 +21,13 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 	public docChanged() {
 		this._onDidChangeCodeLenses.fire();
 	}
-	public async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
-		if (document.uri.path.includes('/.docs/')) {
-			return this.codeLenses;
-		}
-		this.codeLenses = [];
-		this.statusBarItem.hide();
-		const jsonData = JSON.parse((await fs.promises.readFile(config.commentJSONPath)).toString()) || {};
+
+	public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeLens[]> {
+		const codeLenses: vscode.CodeLens[] = [];
 		const existingCodeLensRanges: vscode.Range[] = [];
-		console.log("executed this line of code");
-		for (const codeLens of this.codeLenses) {
+		this.statusBarItem.hide();
+		const jsonData = fs.existsSync(config.commentJSONPath) ? JSON.parse(fs.readFileSync(config.commentJSONPath, "utf-8")) : {};
+		for (const codeLens of codeLenses) {
 			existingCodeLensRanges.push(codeLens.range);
 		}
 		config.changedComments = [];
@@ -59,10 +50,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 						const value = jsonData[key];
 						delete jsonData[key];
 						jsonData[newKey] = value;
-						fs.promises.writeFile(
-							config.commentJSONPath,
-							JSON.stringify(jsonData, null, 2)
-						);
+						fs.writeFileSync(config.commentJSONPath, JSON.stringify(jsonData, null, 2));
 						break;
 					} else {
 						this.lineChangeFlag = false;
@@ -70,21 +58,21 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 				}
 				if (!this.lineChangeFlag) {
 					const changedCommentObject = {
-						lineNumber: lineNumber,
-						text: value
+					lineNumber: lineNumber,
+					text: value
 					};
 					config.changedComments.push(changedCommentObject);
 				}
 			}
-			if (!this.lineChangeFlag && config.changedComments.length !== 0) {
+				if (!this.lineChangeFlag && config.changedComments.length !== 0) {
 				this.statusBarItem.color = "red";
 				this.statusBarItem.text = "$(extensions-info-message) comments";
 				this.statusBarItem.command = "mywiki.showCommentNotifications";
 				this.statusBarItem.show();
-			}
-			const commentText = value;
-			const range = new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0);
-			if (!existingCodeLensRanges.some((existingRange) => existingRange.contains(range))) {
+				} 
+				const commentText = value;
+				const range = new vscode.Range(lineNumber - 1, 0, lineNumber - 1, 0);
+				if (!existingCodeLensRanges.some((existingRange) => existingRange.contains(range))) {
 				const command: vscode.Command = {
 					title: isSnippet(commentText) ? extractFirstLine(commentText) : commentText,
 					command: "mywiki.clickComment",
@@ -92,13 +80,13 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 					arguments: [commentText, lineNumber],
 				};
 				const codeLens = new vscode.CodeLens(range, command);
-				this.codeLenses.push(codeLens);
-			}
+				codeLenses.push(codeLens);
+				}
 		}
-
-		const jsonContent = JSON.stringify(jsonData, null, 2);
-		fs.promises.writeFile(config.commentJSONPath, jsonContent + "\n", "utf-8");
-		return this.codeLenses;
+		
+	const jsonContent = JSON.stringify(jsonData, null, 2);
+	fs.writeFileSync(config.commentJSONPath, jsonContent, "utf-8");
+		return codeLenses;
 	}
 
 	public resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken) {
