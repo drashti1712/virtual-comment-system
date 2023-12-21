@@ -4,7 +4,7 @@
 	"publisher": "virtual-comments",
 	"description": "Virtual Comments",
 	"icon": "resources/logo.png",
-	"version": "0.0.3",
+	"version": "0.2.0",
 	"private": true,
 	"license": "MIT",
 	"repository": {
